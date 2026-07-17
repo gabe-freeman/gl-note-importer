@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Notes Manager for Gospel Library",
+  "version": "0.1",
+  "permissions": ["activeTab", "storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://*.churchofjesuschrist.org/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["https://*.churchofjesuschrist.org/*"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
