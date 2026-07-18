@@ -1,12 +1,39 @@
-// Listener to catch the data passed down from the popup
 window.addEventListener("message", async (event) => {
-  if (event.source !== window || !event.data) return;
+  if (event.source !== window || !event.data || event.data.type !== "FROM_CONTENT_SCRIPT") return;
+  
+  const instruction = event.data.payload;
 
-  // --- TRIGGERED ON UPLOAD ---
-  if (event.data.type === "START_UPLOAD") {
-    const annotationsToUpload = event.data.payload;
-    const results = [];
+  // --- HANDLE EXPORT ---
+  if (instruction.action === 'EXPORT') {
+    try {
+      const response = await fetch('/notes/api/v3/annotations?contentVersion=9&type=highlight,reference&locale=eng&notesAsHtml=true');
+      const data = await response.json();
+      
+      // Turn the JSON data into a downloadable file
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `notes_download.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch (error) {
+      alert("Export failed: " + error.message);
+    }
+  }
 
+  // --- HANDLE IMPORT ---
+  if (instruction.action === 'IMPORT') {
+    const annotationsToUpload = instruction.data;
+    if (!Array.isArray(annotationsToUpload)) {
+      alert("Invalid backup file format.");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to import ${annotationsToUpload.length} annotations into this account?`)) return;
+
+    let successCount = 0;
+    
     try {
       for (const item of annotationsToUpload) {
         const payload = {
@@ -19,45 +46,26 @@ window.addEventListener("message", async (event) => {
             uri: h.uri,
             color: h.color || "yellow"
           })),
-          annotationId: crypto.randomUUID(), // Generate new ID so it doesn't conflict
-          source: window.location.origin + window.location.pathname, 
+          annotationId: crypto.randomUUID(), // Assign new ID for target account setup
+          source: window.location.origin + window.location.pathname,
           type: item.type || "highlight",
           locale: item.locale || "eng"
         };
 
-        if (item.note) {
-          payload.note = item.note;
-        }
+        if (item.note) payload.note = item.note;
 
-        const response = await fetch('/notes/api/v3/annotations?returnResponse=false', {
+        await fetch('/notes/api/v3/annotations?returnResponse=false', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-
-        const resultData = await response.json();
-        results.push(resultData);
+        
+        successCount++;
       }
-
-      window.postMessage({ type: "FROM_ANNOTATIONS_UPLOAD", payload: results }, "*");
-
+      alert(`Success! Successfully imported ${successCount} out of ${annotationsToUpload.length} annotations.`);
+      window.location.reload(); // Reload page to visually show the newly added highlights
     } catch (error) {
-      window.postMessage({ type: "FROM_ANNOTATIONS_UPLOAD", error: error.message }, "*");
+      alert(`Import process encountered an error after successfully uploading ${successCount} items: ${error.message}`);
     }
   }
 });
-
-// --- TRIGGERED ON INITIAL FETCH ---
-(async () => {
-  try {
-    const response = await fetch('/notes/api/v3/annotations?contentVersion=9&type=journal,highlight,reference&locale=eng&notesAsHtml=true');
-    // Guard against running this code block logic when inject.js is triggered purely for the message listener
-    if (response.headers.get("content-type")?.includes("application/json")) {
-      const data = await response.json();
-      window.postMessage({ type: "FROM_ANNOTATIONS_FETCH", payload: data }, "*");
-    }
-  } catch (error) {
-  }
-})();
