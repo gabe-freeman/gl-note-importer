@@ -1,4 +1,4 @@
 *.env
 *.csv
 *.zip
-*notes_download.json
+*notes_download*.json
