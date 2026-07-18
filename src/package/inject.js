@@ -8,9 +8,7 @@ window.addEventListener("message", async (event) => {
     window.postMessage({ type: "STATUS_UPDATE", operation, text }, "*");
   };
 
-  // ==========================================
-  // --- HANDLE EXPORT OPERATIONS ----------
-  // ==========================================
+  // HANDLE EXPORT
   if (instruction.action === 'EXPORT') {
     try {
       const outputData = {};
@@ -28,7 +26,7 @@ window.addEventListener("message", async (event) => {
         outputData.tags = await res.json();
       }
       if (config.annotations || config.highlights || config.journals) {
-        // Collect all potential elements
+        // Collect all elements
         const res = await fetch('/notes/api/v3/annotations?contentVersion=9&type=highlight,reference,journal&locale=eng&notesAsHtml=true');
         let annotations = await res.json();
 
@@ -56,15 +54,13 @@ window.addEventListener("message", async (event) => {
     }
   }
 
-  // ==========================================
-  // --- HANDLE IMPORT OPERATIONS ----------
-  // ==========================================
+  // HANDLE IMPORT
   if (instruction.action === 'IMPORT') {
     const fileData = instruction.data;
     const idMap = { notebooks: {}, tags: {}, sets: {} };
 
     try {
-      // 1. IMPORT STUDY SETS
+      // Study Sets
       if (config.sets && Array.isArray(fileData.sets)) {
         updateUI('import', 'Importing Study Sets...');
         const reversedSets = [...fileData.sets].reverse();
@@ -80,7 +76,7 @@ window.addEventListener("message", async (event) => {
         }
       }
 
-      // 2. IMPORT NOTEBOOKS / FOLDERS
+      // Notebooks/Folders
       if (config.notebooks && Array.isArray(fileData.notebooks)) {
         updateUI('import', 'Importing Notebooks...');
         const reversedNotebooks = [...fileData.notebooks].reverse();
@@ -99,7 +95,7 @@ window.addEventListener("message", async (event) => {
         }
       }
 
-      // 3. IMPORT TAGS
+      // Tags
       if (config.tags && Array.isArray(fileData.tags)) {
         updateUI('import', 'Importing Tags...');
         const reversedTags = [...fileData.tags].reverse();
@@ -115,7 +111,7 @@ window.addEventListener("message", async (event) => {
         }
       }
 
-      // 4. IMPORT ANNOTATIONS / HIGHLIGHTS / JOURNALS / REFERENCES (Oldest First)
+      // Notes (annotations, hightlights, journals, and references)
       if (Array.isArray(fileData.annotations)) {
         const filteredNotes = fileData.annotations.filter(item => {
           if (item.type === 'journal' && !config.journals) return false;
@@ -134,7 +130,6 @@ window.addEventListener("message", async (event) => {
           const isJournal = item.type === "journal";
           const newAnnotationId = crypto.randomUUID();
           
-          // Step 4a: Build the baseline annotation payload
           const payload = {
             annotationId: newAnnotationId,
             type: isJournal ? "journal" : "highlight",
@@ -158,7 +153,7 @@ window.addEventListener("message", async (event) => {
 
           if (item.note) payload.note = item.note;
 
-          // --- RELATIONAL DICTIONARY MAPPINGS ---
+          // Map old IDs to new IDs for notebooks, tags, and sets
           if (config.notebooks && Array.isArray(item.folders)) {
             const mappedFolders = item.folders
               .map(f => typeof f === 'string' ? f : f.folderId)
@@ -179,14 +174,14 @@ window.addEventListener("message", async (event) => {
             payload.setId = idMap.sets[item.setId];
           }
 
-          // Step 4b: Fire primary transaction to create the base highlight/note
+          // Make request to create note
           await fetch('/notes/api/v3/annotations?returnResponse=false', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
 
-          // Step 4c: If this item contains cross-references, attach them now
+          // Make request to create reference (if applicable)
           if (!isJournal && Array.isArray(item.refs) && item.refs.length > 0) {
             for (const ref of item.refs) {
               if (!ref.pid) continue;
@@ -199,7 +194,6 @@ window.addEventListener("message", async (event) => {
                 pid: ref.pid
               };
 
-              // Construct the precise dynamic URL utilizing our new annotationId and the reference pid
               const putUrl = `/notes/api/v3/annotations/${newAnnotationId}/reference/${ref.pid}`;
 
               await fetch(putUrl, {
@@ -212,7 +206,7 @@ window.addEventListener("message", async (event) => {
         }
       }
       
-      updateUI('import', 'Importing complete! Refresh the page to view.');
+      updateUI('import', 'Importing complete! Refresh the page.');
     } catch (error) {
       alert(`The execution engine halted due to an issue: ${error.message}`);
     }

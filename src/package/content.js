@@ -47,18 +47,18 @@ function createMenuWrapper(type) {
 
   // Action execution button
   const execBtn = document.createElement('button');
-  execBtn.textContent = type === 'EXPORT' ? 'Execute Export' : 'Select File & Import';
+  execBtn.textContent = type === 'EXPORT' ? 'Export to File' : 'Import from File';
   execBtn.style.cssText = 'width:100%; padding:6px; background:#2196F3; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold; margin-bottom:10px;';
 
   const loadingText = document.createElement('div');
   loadingText.id = `ext-${type.toLowerCase()}-loading`;
-  loadingText.style.cssText = 'display:none; font-weight:bold; color:#2b6cb0; text-align:center; margin-bottom:10px;';
+  loadingText.style.cssText = 'display:none; color:#2b6cb0; text-align:center; margin-bottom:10px;';
 
   menu.appendChild(execBtn);
   menu.appendChild(loadingText);
 
-  // Dynamic Checkbox Generation Rules
-  const targetKeys = ['Annotations', 'Highlights', 'Journals', 'Notebooks', 'Tags', 'Sets'];
+  // Checkboxes for each data type
+  const targetKeys = ['Annotations', 'Highlights', 'Journals', 'Tags', 'Notebooks', 'Sets'];
 
   targetKeys.forEach(item => {
     const row = document.createElement('div');
@@ -84,7 +84,7 @@ function createMenuWrapper(type) {
     lbl.appendChild(cb);
     lbl.appendChild(document.createTextNode(item));
     row.appendChild(lbl);
-    row.appendChild(warn);
+    if (item === 'Tags' || item === 'Notebooks' || item === 'Sets') row.appendChild(warn);
     menu.appendChild(row);
   });
 
@@ -115,8 +115,8 @@ function getCheckboxConfig(prefix) {
     annotations: document.getElementById(`cb-${prefix}-Annotations`).checked,
     highlights: document.getElementById(`cb-${prefix}-Highlights`).checked,
     journals: document.getElementById(`cb-${prefix}-Journals`).checked,
-    notebooks: document.getElementById(`cb-${prefix}-Notebooks`).checked,
     tags: document.getElementById(`cb-${prefix}-Tags`).checked,
+    notebooks: document.getElementById(`cb-${prefix}-Notebooks`).checked,
     sets: document.getElementById(`cb-${prefix}-Sets`).checked
   };
 }
